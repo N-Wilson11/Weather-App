@@ -9,8 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     var size: CGFloat = 50
-    var urlString: String = ""
-    
+    var urlString: String = "https://api.openweathermap.org/data/2.5/weather?q=s-Hertogenbosch&appid=3b7c0bb2df5778f696d6dfc53b6189c9&units=metric"
     @State var weatherData: WeatherData?
     var body: some View {
         ZStack {
@@ -20,19 +19,21 @@ struct ContentView: View {
                 .ignoresSafeArea(.all)
             
             VStack{
-                Text("Locatie").font(.custom("HelveticaNeueUltraLight",size:size))
+                Text(getLocationString()).font(.custom("HelveticaNeueUltraLight",size:size))
                 Text(getTemperatureString() + " C").font(.custom("HelveticaNeueUltraLight",size:size))
             }
             
         }.onAppear(perform: loadData)
     }
     
-    func loadData(){
+    func loadData() {
+        guard let url = URL(string: urlString) else {
+            print("ERROR: failed to construct a URL from string")
+            return
+        }
         
-        let task = URLSession.shared.dataTask(with: url){
-            data, response, error in
-            
-            if let error = error{
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
                 print("ERROR: fetch failed; \(error.localizedDescription)")
                 return
             }
@@ -43,29 +44,44 @@ struct ContentView: View {
             }
             
             var newWeatherData: WeatherData?
-            do{
+            do {
                 newWeatherData = try JSONDecoder().decode(WeatherData.self, from: data)
-            }
-            catch let error as NSError{
+            } catch let error as NSError {
                 print("ERROR: decoding. In domain= \(error.domain), description= \(error.localizedDescription)")
             }
-            if newWeatherData == nil{
-                print("")
+            
+            if newWeatherData == nil {
+                print("ERROR: Weather data is nil")
                 return
             }
-            self.weatherData = newWeatherData
+            DispatchQueue.main.async {
+                self.weatherData = newWeatherData
+            }
+            
         }
         
-        guard let url = URL(string: urlString) else{
-            print("ERROR: failed to construct a URL from string")
-            return
-        }
+        task.resume() // Don't forget to resume the task
     }
+
     
     func getTemperatureString()->String{
-        
-        return "?"
+        guard let weatherData = weatherData else {
+                    return "?"
+                }
+                
+                // Return the temperature as a string with 1 decimal place
+                let temperature = weatherData.main.temp
+                return String(format: "%.1f", temperature)
     }
+    
+    func getLocationString() -> String {
+        // If weatherData is nil, return "?"
+        guard let weatherData = weatherData else {
+            return "?"
+        }
+           // Return the city name
+        return weatherData.name
+       }
     
     
 }
